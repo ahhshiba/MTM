@@ -1,0 +1,199 @@
+# services:
+#   postgres:
+#     image: postgres:16
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#       POSTGRES_DB: ${POSTGRES_DB}
+#     volumes:
+#       - ./db/data:/var/lib/postgresql/data
+#       - ./docker:/docker-entrypoint-initdb.d
+
+#   redis:
+#     image: redis:7
+#     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+#     volumes:
+#       - ./redis/data:/data
+
+#   paddle_vllm:
+#     image: ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddlex-genai-vllm-server:latest
+#     command: >
+#       python3 -m vllm.entrypoints.openai.api_server
+#       --model /root/.paddlex/official_models/PaddleOCR-VL
+#       --served-model-name PaddleOCR-VL-0.9B
+#       --host 0.0.0.0
+#       --port 8080
+#       --trust-remote-code
+#       --max-model-len 8192
+#       --gpu-memory-utilization ${VLLM_GPU_MEM_UTIL}
+#     shm_size: "8g"
+#     volumes:
+#       - ${PADDLE_MODELS_HOST}:/root/.paddlex/official_models
+#     gpus: all
+
+#   lab_service:
+#     image: ${LAB_SERVICE_IMAGE}
+#     dns:
+#       - 8.8.8.8
+#       - 8.8.4.4
+#     environment:
+#       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+#       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+#       PADDLE_VLLM_URL: http://paddle_vllm:8080/v1
+#       OCR_DATA_ROOT: /data/ocr
+#       WORKER_MAX_CONCURRENCY: ${WORKER_MAX_CONCURRENCY}
+#       JOB_STATE_TTL_SECONDS: ${JOB_STATE_TTL_SECONDS}
+#       OCR_SUBPROCESS_TIMEOUT_SECONDS: ${OCR_SUBPROCESS_TIMEOUT_SECONDS}
+#       GEMINI_API_KEY: ${GEMINI_API_KEY}
+#       USE_VERTEX_AI: ${USE_VERTEX_AI}
+#       DISABLE_MODEL_SOURCE_CHECK: "True"
+#       VERTEX_API_KEY: ${VERTEX_API_KEY}
+#       VERTEX_PROJECT: ${VERTEX_PROJECT}
+#       VERTEX_LOCATION: ${VERTEX_LOCATION}
+#     volumes:
+#       - ${OCR_DATA_HOST}:/data/ocr
+#       - ./license:/app/license_dir
+#       - /sys:/sys:ro
+#       - /proc:/proc:ro
+#       - /home/lab321/.paddlex/official_models:/root/.paddlex/official_models
+#       - /home/lab321/.paddlex/fonts:/root/.paddlex/fonts
+#     depends_on:
+#       - postgres
+#       - redis
+#       - paddle_vllm
+#     ports:
+#       - "${LAB_PORT}:9000"
+#     gpus: all
+
+#   backend:
+#     image: ${BACKEND_IMAGE}
+#     dns:
+#       - 8.8.8.8
+#       - 8.8.4.4
+#     environment:
+#       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+#       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+#       LOCAL_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+#       LAB_API_BASE_URL: http://lab_service:9000
+#       LAB_HTTP_TIMEOUT_SECONDS: 120
+#     depends_on:
+#       - lab_service
+#       - redis
+#       - postgres
+#     ports:
+#       - "8001:8001"
+
+#   frontend:
+#     image: ${FRONTEND_IMAGE}
+#     environment:
+#       LOCAL_API_BASE: http://backend:8001
+#     depends_on:
+#       - backend
+#     ports:
+#       - "3000:80"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - ./redis/data:/data
+#/root/.paddlex/official_models/PaddleOCR-VL
+  paddle_vllm:
+    image: ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddlex-genai-vllm-server:latest
+    command: >
+      python3 -m vllm.entrypoints.openai.api_server
+      --model /root/.paddlex/official_models/PaddleOCR-VL
+      --served-model-name PaddleOCR-VL-0.9B
+      --host 0.0.0.0
+      --port 8080
+      --trust-remote-code
+      --max-model-len 8192
+      --gpu-memory-utilization ${VLLM_GPU_MEM_UTIL}
+    shm_size: "8g"
+    volumes:
+      - ${PADDLE_MODELS_HOST}:/root/.paddlex/official_models
+    gpus: all
+
+  lab_service:
+    image: ${LAB_SERVICE_IMAGE}
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      PADDLE_VLLM_URL: http://paddle_vllm:8080/v1
+      OCR_DATA_ROOT: /data/ocr
+      WORKER_MAX_CONCURRENCY: ${WORKER_MAX_CONCURRENCY}
+      JOB_STATE_TTL_SECONDS: ${JOB_STATE_TTL_SECONDS}
+      OCR_SUBPROCESS_TIMEOUT_SECONDS: ${OCR_SUBPROCESS_TIMEOUT_SECONDS}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-30}
+      GEMINI_MAX_CONCURRENCY: ${GEMINI_MAX_CONCURRENCY:-4}
+      GEMINI_MAX_OUTPUT_TOKENS: ${GEMINI_MAX_OUTPUT_TOKENS:-2048}
+      GEMINI_MAX_IMAGE_SIDE: ${GEMINI_MAX_IMAGE_SIDE:-1600}
+      GEMINI_IMAGE_JPEG_QUALITY: ${GEMINI_IMAGE_JPEG_QUALITY:-85}
+      GEMINI_THINKING_BUDGET: ${GEMINI_THINKING_BUDGET:-0}
+      GEMINI_MAX_HISTORY_MESSAGES: ${GEMINI_MAX_HISTORY_MESSAGES:-6}
+      EXTRACTION_SECTION_CHUNK_PAGE_COUNT: ${EXTRACTION_SECTION_CHUNK_PAGE_COUNT:-2}
+      EXTRACTION_SECTION_CHUNK_MAX_WORKERS: ${EXTRACTION_SECTION_CHUNK_MAX_WORKERS:-2}
+      USE_VERTEX_AI: ${USE_VERTEX_AI}
+      DISABLE_MODEL_SOURCE_CHECK: "True"
+      VERTEX_API_KEY: ${VERTEX_API_KEY}
+      VERTEX_PROJECT: ${VERTEX_PROJECT}
+      VERTEX_LOCATION: ${VERTEX_LOCATION}
+    volumes:
+      - ${OCR_DATA_HOST}:/data/ocr
+      - ./license:/app/license_dir
+      - /sys:/sys:ro
+      - /proc:/proc:ro
+      - /home/lab321/.paddlex/official_models:/root/.paddlex/official_models
+      - /home/lab321/.paddlex/fonts:/root/.paddlex/fonts
+    depends_on:
+      - postgres
+      - redis
+      - paddle_vllm
+    ports:
+      - "${LAB_PORT}:9000"
+    gpus: all
+
+  backend:
+    image: ${BACKEND_IMAGE}
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      LOCAL_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      LAB_API_BASE_URL: http://lab_service:9000
+      LAB_HTTP_TIMEOUT_SECONDS: ${LAB_HTTP_TIMEOUT_SECONDS:-120}
+      LAB_VLM_BATCH_TIMEOUT_SECONDS: ${LAB_VLM_BATCH_TIMEOUT_SECONDS:-240}
+    depends_on:
+      - lab_service
+      - redis
+      - postgres
+    ports:
+      - "8001:8001"
+
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    environment:
+      LOCAL_API_BASE: http://backend:8001
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
